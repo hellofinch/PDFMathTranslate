@@ -5,6 +5,7 @@ from pdf2zh import __version__
 from pdf2zh.pdf2zh import extract_text
 
 import gradio as gr
+from gradio_pdf import PDF
 import numpy as np
 import pymupdf
 import tqdm
@@ -361,7 +362,8 @@ with gr.Blocks(
 
         with gr.Column(scale=2):
             gr.Markdown("## Preview")
-            preview = gr.Image(label="Document Preview", visible=True)
+            # preview = gr.Image(label="Document Preview", visible=True)
+            preview = PDF(label="Document Preview", interactive=Fasle, visible=True)
 
     # Event handlers
     file_input.upload(
