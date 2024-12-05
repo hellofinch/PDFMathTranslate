@@ -204,7 +204,7 @@ class TranslateConverter(PDFConverterEx):
                 ):
                     return True
             return False
-
+        
         ############################################################
         # A. 原文档解析
         for child in ltpage:

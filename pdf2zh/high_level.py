@@ -12,6 +12,7 @@ from pdf2zh.converter import TranslateConverter
 from pdf2zh.pdfinterp import PDFPageInterpreterEx
 from pymupdf import Font
 
+from PIL import Image
 
 def extract_text_to_fp(
     inf: BinaryIO,
@@ -68,25 +69,21 @@ def extract_text_to_fp(
             h, w = box.shape
             vcls = ["abandon", "figure", "table", "isolate_formula", "formula_caption"]
             for i, d in enumerate(page_layout.boxes):
+                x0, y0, x1, y1 = d.xyxy.squeeze()
+                x0, y0, x1, y1 = (
+                        np.clip(int(x0 - 1), 0, w - 1),
+                        np.clip(int(h - y1 - 1), 0, h - 1),
+                        np.clip(int(x1 + 1), 0, w - 1),
+                        np.clip(int(h - y0 + 1), 0, h - 1),
+                    )
                 if not page_layout.names[int(d.cls)] in vcls:
-                    x0, y0, x1, y1 = d.xyxy.squeeze()
-                    x0, y0, x1, y1 = (
-                        np.clip(int(x0 - 1), 0, w - 1),
-                        np.clip(int(h - y1 - 1), 0, h - 1),
-                        np.clip(int(x1 + 1), 0, w - 1),
-                        np.clip(int(h - y0 + 1), 0, h - 1),
-                    )
                     box[y0:y1, x0:x1] = i + 2
-            for i, d in enumerate(page_layout.boxes):
-                if page_layout.names[int(d.cls)] in vcls:
-                    x0, y0, x1, y1 = d.xyxy.squeeze()
-                    x0, y0, x1, y1 = (
-                        np.clip(int(x0 - 1), 0, w - 1),
-                        np.clip(int(h - y1 - 1), 0, h - 1),
-                        np.clip(int(x1 + 1), 0, w - 1),
-                        np.clip(int(h - y0 + 1), 0, h - 1),
-                    )
+                else:
                     box[y0:y1, x0:x1] = 0
+            
+                imagex = image[y0:y1,x0:x1]
+                png = Image.fromarray(imagex)
+                png.save(f"output_image_origin_{i}_{page_layout.names[int(d.cls)]}.png")
             layout[page.pageno] = box
             # 新建一个 xref 存放新指令流
             page.page_xref = doc_en.get_new_xref()  # hack 插入页面的新 xref

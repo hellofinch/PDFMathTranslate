@@ -161,7 +161,6 @@ def extract_text(
 
         with open(Path(output) / f"{filename}-en.pdf", "rb") as fp:
             obj_patch: dict = extract_text_to_fp(fp, model=model, **locals())
-
         for obj_id, ops_new in obj_patch.items():
             # ops_old=doc_en.xref_stream(obj_id)
             # print(obj_id)
