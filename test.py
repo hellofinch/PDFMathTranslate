@@ -32,15 +32,15 @@ def ocrpdf(file):
     vcls = ["abandon", "figure", "table", "isolate_formula", "formula_caption"]
     for i, d in enumerate(page_layout.boxes):
         text=""
-        x0, y0, x1, y1 = d.xyxy.squeeze()
-        x0, y0, x1, y1 = (
-                np.clip(int(x0 - 1), 0, w - 1),
-                np.clip(int(h - y1 - 1), 0, h - 1),
-                np.clip(int(x1 + 1), 0, w - 1),
-                np.clip(int(h - y0 + 1), 0, h - 1),
-            )
+        x0, y0, x1, y1 = map(int,d.xyxy.squeeze())
+        # x0, y0, x1, y1 = (
+        #         np.clip(int(x0 - 1), 0, w - 1),
+        #         np.clip(int(h - y1 - 1), 0, h - 1),
+        #         np.clip(int(x1 + 1), 0, w - 1),
+        #         np.clip(int(h - y0 + 1), 0, h - 1),
+        #     )
         if not page_layout.names[int(d.cls)] in vcls:
-            box[y0:y1, x0:x1] = i + 2
+            # box[y0:y1, x0:x1] = i + 2
             if page_layout.names[int(d.cls)]=="plain text":
                 imagex = image[y0:y1,x0:x1]
                 result = ocr.ocr(imagex, cls=False)
@@ -49,12 +49,12 @@ def ocrpdf(file):
                     for line in res:
                         text+=line[1][0]
                 result_text.append(translation(text))
-        else:
-            box[y0:y1, x0:x1] = 0
+        # else:
+        #     box[y0:y1, x0:x1] = 0
         
-        imagex = image[y0:y1,x0:x1]
-        png = Image.fromarray(imagex)
-        png.save(f"output_image_{i}_{page_layout.names[int(d.cls)]}.png")
+        # imagex = image[y0:y1,x0:x1]
+        # png = Image.fromarray(imagex)
+        # png.save(f"output_image_{i}_{page_layout.names[int(d.cls)]}.png")
     return result_text
 
 import httpx, json
