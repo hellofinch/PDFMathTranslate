@@ -1,3 +1,8 @@
+.github
+docs
+.git
+.pre-commit-config.yaml
+uv.lock
 pdf2zh_files
 gui/pdf2zh_files
 gradio_files
@@ -93,9 +98,6 @@ ipython_config.py
 #   intended to run in multiple environments; otherwise, check them in:
 # .python-version
 
-requirements.txt
-pdf2zh-dev/**
-
 # pipenv
 #   According to pypa/pipenv#598, it is recommended to include Pipfile.lock in version control.
 #   However, in case of collaboration, if having platform-specific dependencies or dependencies
@@ -171,4 +173,3 @@ cython_debug/
 .idea/
 .vscode
 .DS_Store
-uv.lock
