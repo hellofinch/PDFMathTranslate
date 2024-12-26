@@ -4,7 +4,11 @@ on:
   push:
     branches: [ "ghrc" ]
   workflow_dispatch: # 允许手动触发 Workflow
-  
+    inputs: # 可选的用户输入参数
+      buildType:
+        description: 'Build type (release/debug)'
+        required: true
+        default: 'release'
 env:
   REGISTRY: ghcr.io
   IMAGE_NAME: ${{ github.repository }}
