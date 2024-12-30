@@ -2,7 +2,7 @@
 
 [English](../README.md) | [简体中文](README_zh-CN.md) | 日本語
 
-<img src="./docs/images/banner.png" width="320px"  alt="PDF2ZH"/>  
+<img src="./images/banner.png" width="320px"  alt="PDF2ZH"/>  
 
 <h2 id="title">PDFMathTranslate</h2>
 
@@ -56,7 +56,7 @@
 <h2 id="preview">プレビュー</h2>
 
 <div align="center">
-<img src="./docs/images/preview.gif" width="80%"/>
+<img src="./images/preview.gif" width="80%"/>
 </div>
 
 <h2 id="demo">公共サービス 🌟</h2>
@@ -122,9 +122,9 @@ Python環境を事前にインストールする必要はありません
     http://localhost:7860/
     ```
 
-    <img src="./docs/images/gui.gif" width="500"/>
+    <img src="./images/gui.gif" width="500"/>
 
-詳細については、[GUIのドキュメント](./docs/README_GUI.md) を参照してください。
+詳細については、[GUIのドキュメント](./README_GUI.md) を参照してください。
 
 <h3 id="docker">方法4. Docker</h3>
 
@@ -158,7 +158,7 @@ Python環境を事前にインストールする必要はありません
 
 コマンドラインで翻訳コマンドを実行し、現在の作業ディレクトリに翻訳されたドキュメント `example-mono.pdf` とバイリンガルドキュメント `example-dual.pdf` を生成します。デフォルトではGoogle翻訳サービスを使用します。
 
-<img src="./docs/images/cmd.explained.png" width="580px"  alt="cmd"/>  
+<img src="./images/cmd.explained.png" width="580px"  alt="cmd"/>  
 
 以下の表に、参考のためにすべての高度なオプションをリストしました：
 
@@ -223,7 +223,13 @@ pdf2zh example.pdf -li en -lo ja
 |**Tencent**|`tencent`|`TENCENTCLOUD_SECRET_ID`, `TENCENTCLOUD_SECRET_KEY`|`[Your ID]`, `[Your Key]`|See [Tencent](https://www.tencentcloud.com/products/tmt?from_qcintl=122110104)|
 |**Dify**|`dify`|`DIFY_API_URL`, `DIFY_API_KEY`|`[Your DIFY URL]`, `[Your Key]`|See [Dify](https://github.com/langgenius/dify),Three variables, lang_out, lang_in, and text, need to be defined in Dify's workflow input.|
 |**AnythingLLM**|`anythingllm`|`AnythingLLM_URL`, `AnythingLLM_APIKEY`|`[Your AnythingLLM URL]`, `[Your Key]`|See [anything-llm](https://github.com/Mintplex-Labs/anything-llm)|
-|**Argos Translate**|`argos-translate`| | |See [argos-translate](https://github.com/argosopentech/argos-translate)|
+|**Argos Translate**|`argos`| | |See [argos-translate](https://github.com/argosopentech/argos-translate)|
+|**Grok**|`grok`| `GORK_API_KEY`, `GORK_MODEL` | `[Your GORK_API_KEY]`, `grok-2-1212` |See [Grok](https://docs.x.ai/docs/overview)|
+|**DeepSeek**|`deepseek`| `DEEPSEEK_API_KEY`, `DEEPSEEK_MODEL` | `[Your DEEPSEEK_API_KEY]`, `deepseek-chat` |See [DeepSeek](https://www.deepseek.com/)|
+|**OpenAI-Liked**|`openai-liked`| `OPENAILIKE_BASE_URL`, `OPENAILIKE_API_KEY`, `OPENAILIKE_MODEL` | `url`, `[Your Key]`, `model name` | None |
+
+(need Japenese translation)
+For large language models that are compatible with the OpenAI API but not listed in the table above, you can set environment variables using the same method outlined for OpenAI in the table.
 
 `-s service` または `-s service:model` を使用してサービスを指定します：
 
@@ -249,7 +255,7 @@ pdf2zh example.pdf -f "(CM[^RT].*|MS.*|.*Ital)" -c "(\(|\||\)|\+|=|\d|[\u0080-\u
 デフォルトで `Latex`、`Mono`、`Code`、`Italic`、`Symbol` および `Math` フォントを保持します：
 
 ```bash
-pdf2zh example.pdf -f "(CM[^R]|(MS|XY|MT|BL|RM|EU|LA|RS)[A-Z]|LINE|LCIRCLE|TeX-|rsfs|txsy|wasy|stmary|.*Mono|.*Code|.*Ital|.*Sym|.*Math)"
+pdf2zh example.pdf -f "(CM[^R]|MS.M|XY|MT|BL|RM|EU|LA|RS|LINE|LCIRCLE|TeX-|rsfs|txsy|wasy|stmary|.*Mono|.*Code|.*Ital|.*Sym|.*Math)"
 ```
 
 <h3 id="threads">スレッド数を指定</h3>
@@ -260,16 +266,18 @@ pdf2zh example.pdf -f "(CM[^R]|(MS|XY|MT|BL|RM|EU|LA|RS)[A-Z]|LINE|LCIRCLE|TeX-|
 pdf2zh example.pdf -t 1
 ```
 
-<h3 id="prompt">custom prompt</h3>
-(need Japenese translation)
-Use `--prompt` to specify which prompt to use in llm:
+<h3 id="prompt">カスタム プロンプト</h3>
+
+`--prompt`を使用して、LLMで使用するプロンプトを指定します：
+
 ```bash
 pdf2zh example.pdf -pr prompt.txt
 ```
 
 
-example prompt.txt
-```
+`prompt.txt`の例：
+
+```txt
 [
     {
         "role": "system",
@@ -283,12 +291,14 @@ example prompt.txt
 ```
 
 
-In custom prompt file, there are three variables can be used.
-|**variables**|**comment**|
+カスタムプロンプトファイルでは、以下の3つの変数が使用できます。
+
+|**変数**|**内容**|
 |-|-|
-|`lang_in`|input language|
-|`lang_out`|output language|
-|`text`|text need to be translated|
+|`lang_in`|ソース言語|
+|`lang_out`|ターゲット言語|
+|`text`|翻訳するテキスト|
+
 <h2 id="todo">API</h2>
 
 ### Python

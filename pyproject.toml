@@ -17,6 +17,7 @@ dependencies = [
     "tenacity",
     "numpy",
     "ollama",
+    "xinference-client",
     "deepl",
     "openai",
     "azure-ai-translation-text<=1.0.1",
@@ -56,3 +57,7 @@ build-backend = "hatchling.build"
 
 [project.scripts]
 pdf2zh = "pdf2zh.pdf2zh:main"
+
+[tool.flake8]
+ignore = ["E203", "E261", "E501", "W503", "E741"]
+max-line-length = 88

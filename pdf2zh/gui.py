@@ -13,6 +13,7 @@ from gradio_pdf import PDF
 
 from pdf2zh import __version__
 from pdf2zh.high_level import translate
+from pdf2zh.pdf2zh import model
 from pdf2zh.translator import (
     AnythingLLMTranslator,
     AzureOpenAITranslator,
@@ -30,7 +31,11 @@ from pdf2zh.translator import (
     OpenAITranslator,
     SiliconTranslator,
     TencentTranslator,
+    XinferenceTranslator,
     ZhipuTranslator,
+    GorkTranslator,
+    DeepseekTranslator,
+    OpenAIlikedTranslator,
 )
 
 # The following variables associate strings with translators
@@ -40,6 +45,7 @@ service_map: dict[str, BaseTranslator] = {
     "DeepL": DeepLTranslator,
     "DeepLX": DeepLXTranslator,
     "Ollama": OllamaTranslator,
+    "Xinference": XinferenceTranslator,
     "AzureOpenAI": AzureOpenAITranslator,
     "OpenAI": OpenAITranslator,
     "Zhipu": ZhipuTranslator,
@@ -51,6 +57,9 @@ service_map: dict[str, BaseTranslator] = {
     "Dify": DifyTranslator,
     "AnythingLLM": AnythingLLMTranslator,
     "Argos Translate": ArgosTranslator,
+    "Gork": GorkTranslator,
+    "DeepSeek": DeepseekTranslator,
+    "OpenAI-liked": OpenAIlikedTranslator,
 }
 
 # The following variables associate strings with specific languages
@@ -265,6 +274,7 @@ def translate_file(
         "cancellation_event": cancellation_event_map[session_id],
         "envs": _envs,
         "prompt": prompt,
+        "model": model,
     }
     try:
         translate(**param)

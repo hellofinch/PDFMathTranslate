@@ -7,7 +7,9 @@ from copy import copy
 import deepl
 import ollama
 import openai
+import xinference_client
 import requests
+from pdf2zh.cache import TranslationCache
 from azure.ai.translation.text import TextTranslationClient
 from azure.core.credentials import AzureKeyCredential
 from tencentcloud.common import credential
@@ -29,6 +31,7 @@ class BaseTranslator:
     envs = {}
     lang_map = {}
     CustomPrompt = False
+    ignore_cache = False
 
     def __init__(self, lang_in, lang_out, model):
         lang_in = self.lang_map.get(lang_in.lower(), lang_in)
@@ -36,6 +39,15 @@ class BaseTranslator:
         self.lang_in = lang_in
         self.lang_out = lang_out
         self.model = model
+
+        self.cache = TranslationCache(
+            self.name,
+            {
+                "lang_in": lang_in,
+                "lang_out": lang_out,
+                "model": model,
+            },
+        )
 
     def set_envs(self, envs):
         # Detach from self.__class__.envs
@@ -49,8 +61,36 @@ class BaseTranslator:
             for key in envs:
                 self.envs[key] = envs[key]
 
-    def translate(self, text):
-        pass
+    def add_cache_impact_parameters(self, k: str, v):
+        """
+        Add parameters that affect the translation quality to distinguish the translation effects under different parameters.
+        :param k: key
+        :param v: value
+        """
+        self.cache.add_params(k, v)
+
+    def translate(self, text, ignore_cache=False):
+        """
+        Translate the text, and the other part should call this method.
+        :param text: text to translate
+        :return: translated text
+        """
+        if not (self.ignore_cache or ignore_cache):
+            cache = self.cache.get(text)
+            if cache is not None:
+                return cache
+
+        translation = self.do_translate(text)
+        self.cache.set(text, translation)
+        return translation
+
+    def do_translate(self, text):
+        """
+        Actual translate text, override this method
+        :param text: text to translate
+        :return: translated text
+        """
+        raise NotImplementedError
 
     def prompt(self, text, prompt):
         if prompt:
@@ -88,7 +128,7 @@ class GoogleTranslator(BaseTranslator):
             "User-Agent": "Mozilla/4.0 (compatible;MSIE 6.0;Windows NT 5.1;SV1;.NET CLR 1.1.4322;.NET CLR 2.0.50727;.NET CLR 3.0.04506.30)"  # noqa: E501
         }
 
-    def translate(self, text):
+    def do_translate(self, text):
         text = text[:5000]  # google translate max length
         response = self.session.get(
             self.endpoint,
@@ -119,7 +159,7 @@ class BingTranslator(BaseTranslator):
             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36 Edg/131.0.0.0",  # noqa: E501
         }
 
-    def findSID(self):
+    def find_sid(self):
         response = self.session.get(self.endpoint)
         response.raise_for_status()
         url = response.url[:-10]
@@ -130,9 +170,9 @@ class BingTranslator(BaseTranslator):
         )[0]
         return url, ig, iid, key, token
 
-    def translate(self, text):
+    def do_translate(self, text):
         text = text[:1000]  # bing translate max length
-        url, ig, iid, key, token = self.findSID()
+        url, ig, iid, key, token = self.find_sid()
         response = self.session.post(
             f"{url}ttranslatev3?IG={ig}&IID={iid}",
             data={
@@ -162,7 +202,7 @@ class DeepLTranslator(BaseTranslator):
         auth_key = self.envs["DEEPL_AUTH_KEY"]
         self.client = deepl.Translator(auth_key)
 
-    def translate(self, text):
+    def do_translate(self, text):
         response = self.client.translate_text(
             text, target_lang=self.lang_out, source_lang=self.lang_in
         )
@@ -183,7 +223,7 @@ class DeepLXTranslator(BaseTranslator):
         self.endpoint = self.envs["DEEPLX_ENDPOINT"]
         self.session = requests.Session()
 
-    def translate(self, text):
+    def do_translate(self, text):
         response = self.session.post(
             self.endpoint,
             json={
@@ -213,8 +253,11 @@ class OllamaTranslator(BaseTranslator):
         self.options = {"temperature": 0}  # 随机采样可能会打断公式标记
         self.client = ollama.Client()
         self.prompttext = prompt
+        self.add_cache_impact_parameters("temperature", self.options["temperature"])
+        if prompt:
+            self.add_cache_impact_parameters("prompt", prompt.template)
 
-    def translate(self, text):
+    def do_translate(self, text):
         maxlen = max(2000, len(text) * 5)
         for model in self.model.split(";"):
             try:
@@ -230,6 +273,57 @@ class OllamaTranslator(BaseTranslator):
                     response += chunk
                     if len(response) > maxlen:
                         raise Exception("Response too long")
+                return response.strip()
+            except Exception as e:
+                print(e)
+        raise Exception("All models failed")
+
+
+class XinferenceTranslator(BaseTranslator):
+    # https://github.com/xorbitsai/inference
+    name = "xinference"
+    envs = {
+        "XINFERENCE_HOST": "http://127.0.0.1:9997",
+        "XINFERENCE_MODEL": "gemma-2-it",
+    }
+    CustomPrompt = True
+
+    def __init__(self, lang_in, lang_out, model, envs=None, prompt=None):
+        self.set_envs(envs)
+        if not model:
+            model = self.envs["XINFERENCE_MODEL"]
+        super().__init__(lang_in, lang_out, model)
+        self.options = {"temperature": 0}  # 随机采样可能会打断公式标记
+        self.client = xinference_client.RESTfulClient(self.envs["XINFERENCE_HOST"])
+        self.prompttext = prompt
+        self.add_cache_impact_parameters("temperature", self.options["temperature"])
+        if prompt:
+            self.add_cache_impact_parameters("prompt", prompt.template)
+
+    def do_translate(self, text):
+        maxlen = max(2000, len(text) * 5)
+        for model in self.model.split(";"):
+            try:
+                xf_model = self.client.get_model(model)
+                xf_prompt = self.prompt(text, self.prompttext)
+                xf_prompt = [
+                    {
+                        "role": "user",
+                        "content": xf_prompt[0]["content"]
+                        + "\n"
+                        + xf_prompt[1]["content"],
+                    }
+                ]
+                response = xf_model.chat(
+                    generate_config=self.options,
+                    messages=xf_prompt,
+                )
+
+                response = response["choices"][0]["message"]["content"].replace(
+                    "<end_of_turn>", ""
+                )
+                if len(response) > maxlen:
+                    raise Exception("Response too long")
                 return response.strip()
             except Exception as e:
                 print(e)
@@ -261,10 +355,16 @@ class OpenAITranslator(BaseTranslator):
             model = self.envs["OPENAI_MODEL"]
         super().__init__(lang_in, lang_out, model)
         self.options = {"temperature": 0}  # 随机采样可能会打断公式标记
-        self.client = openai.OpenAI(base_url=base_url, api_key=api_key)
+        self.client = openai.OpenAI(
+            base_url=base_url or self.envs["OPENAI_BASE_URL"],
+            api_key=api_key or self.envs["OPENAI_API_KEY"],
+        )
         self.prompttext = prompt
+        self.add_cache_impact_parameters("temperature", self.options["temperature"])
+        if prompt:
+            self.add_cache_impact_parameters("prompt", prompt.template)
 
-    def translate(self, text) -> str:
+    def do_translate(self, text) -> str:
         response = self.client.chat.completions.create(
             model=self.model,
             **self.options,
@@ -305,8 +405,11 @@ class AzureOpenAITranslator(BaseTranslator):
             api_key=api_key,
         )
         self.prompttext = prompt
+        self.add_cache_impact_parameters("temperature", self.options["temperature"])
+        if prompt:
+            self.add_cache_impact_parameters("prompt", prompt.template)
 
-    def translate(self, text) -> str:
+    def do_translate(self, text) -> str:
         response = self.client.chat.completions.create(
             model=self.model,
             **self.options,
@@ -341,6 +444,8 @@ class ModelScopeTranslator(OpenAITranslator):
             model = self.envs["MODELSCOPE_MODEL"]
         super().__init__(lang_in, lang_out, model, base_url=base_url, api_key=api_key)
         self.prompttext = prompt
+        if prompt:
+            self.add_cache_impact_parameters("prompt", prompt.template)
 
 
 class ZhipuTranslator(OpenAITranslator):
@@ -360,8 +465,10 @@ class ZhipuTranslator(OpenAITranslator):
             model = self.envs["ZHIPU_MODEL"]
         super().__init__(lang_in, lang_out, model, base_url=base_url, api_key=api_key)
         self.prompttext = prompt
+        if prompt:
+            self.add_cache_impact_parameters("prompt", prompt.template)
 
-    def translate(self, text) -> str:
+    def do_translate(self, text) -> str:
         try:
             response = self.client.chat.completions.create(
                 model=self.model,
@@ -395,6 +502,8 @@ class SiliconTranslator(OpenAITranslator):
             model = self.envs["SILICON_MODEL"]
         super().__init__(lang_in, lang_out, model, base_url=base_url, api_key=api_key)
         self.prompttext = prompt
+        if prompt:
+            self.add_cache_impact_parameters("prompt", prompt.template)
 
 
 class GeminiTranslator(OpenAITranslator):
@@ -414,6 +523,8 @@ class GeminiTranslator(OpenAITranslator):
             model = self.envs["GEMINI_MODEL"]
         super().__init__(lang_in, lang_out, model, base_url=base_url, api_key=api_key)
         self.prompttext = prompt
+        if prompt:
+            self.add_cache_impact_parameters("prompt", prompt.template)
 
 
 class AzureTranslator(BaseTranslator):
@@ -438,7 +549,7 @@ class AzureTranslator(BaseTranslator):
         logger = logging.getLogger("azure.core.pipeline.policies.http_logging_policy")
         logger.setLevel(logging.WARNING)
 
-    def translate(self, text) -> str:
+    def do_translate(self, text) -> str:
         response = self.client.translate(
             body=[text],
             from_language=self.lang_in,
@@ -466,7 +577,7 @@ class TencentTranslator(BaseTranslator):
         self.req.Target = self.lang_out
         self.req.ProjectId = 0
 
-    def translate(self, text):
+    def do_translate(self, text):
         self.req.SourceText = text
         resp: TextTranslateResponse = self.client.TextTranslate(self.req)
         return resp.TargetText
@@ -491,8 +602,10 @@ class AnythingLLMTranslator(BaseTranslator):
             "Content-Type": "application/json",
         }
         self.prompttext = prompt
+        if prompt:
+            self.add_cache_impact_parameters("prompt", prompt.template)
 
-    def translate(self, text):
+    def do_translate(self, text):
         messages = self.prompt(text, self.prompttext)
         payload = {
             "message": messages,
@@ -523,7 +636,7 @@ class DifyTranslator(BaseTranslator):
         self.api_url = self.envs["DIFY_API_URL"]
         self.api_key = self.envs["DIFY_API_KEY"]
 
-    def translate(self, text):
+    def do_translate(self, text):
         headers = {
             "Authorization": f"Bearer {self.api_key}",
             "Content-Type": "application/json",
@@ -588,3 +701,74 @@ class ArgosTranslator(BaseTranslator):
         translation = from_lang.get_translation(to_lang)
         translatedText = translation.translate(text)
         return translatedText
+
+
+class GorkTranslator(OpenAITranslator):
+    # https://docs.x.ai/docs/overview#getting-started
+    name = "grok"
+    envs = {
+        "GORK_API_KEY": None,
+        "GORK_MODEL": "grok-2-1212",
+    }
+    CustomPrompt = True
+
+    def __init__(self, lang_in, lang_out, model, envs=None, prompt=None):
+        self.set_envs(envs)
+        base_url = "https://api.x.ai/v1"
+        api_key = self.envs["GORK_API_KEY"]
+        if not model:
+            model = self.envs["GORK_MODEL"]
+        super().__init__(lang_in, lang_out, model, base_url=base_url, api_key=api_key)
+        self.prompttext = prompt
+        if prompt:
+            self.add_cache_impact_parameters("prompt", prompt.template)
+
+
+class DeepseekTranslator(OpenAITranslator):
+    name = "deepseek"
+    envs = {
+        "DEEPSEEK_API_KEY": None,
+        "DEEPSEEK_MODEL": "deepseek-chat",
+    }
+    CustomPrompt = True
+
+    def __init__(self, lang_in, lang_out, model, envs=None, prompt=None):
+        self.set_envs(envs)
+        base_url = "https://api.deepseek.com/v1"
+        api_key = self.envs["DEEPSEEK_API_KEY"]
+        if not model:
+            model = self.envs["DEEPSEEK_MODEL"]
+        super().__init__(lang_in, lang_out, model, base_url=base_url, api_key=api_key)
+        self.prompttext = prompt
+        if prompt:
+            self.add_cache_impact_parameters("prompt", prompt.template)
+
+
+class OpenAIlikedTranslator(OpenAITranslator):
+    name = "openailiked"
+    envs = {
+        "OPENAILIKED_BASE_URL": None,
+        "OPENAILIKED_API_KEY": None,
+        "OPENAILIKED_MODEL": None,
+    }
+    CustomPrompt = True
+
+    def __init__(self, lang_in, lang_out, model, envs=None, prompt=None):
+        self.set_envs(envs)
+        if self.envs["OPENAILIKED_BASE_URL"]:
+            base_url = self.envs["OPENAILIKED_BASE_URL"]
+        else:
+            raise ValueError("The OPENAILIKED_BASE_URL is missing.")
+        if not model:
+            if self.envs["OPENAILIKED_MODEL"]:
+                model = self.envs["OPENAILIKED_MODEL"]
+            else:
+                raise ValueError("The OPENAILIKED_MODEL is missing.")
+        if self.envs["OPENAILIKED_API_KEY"] is None:
+            api_key = "openailiked"
+        else:
+            api_key = self.envs["OPENAILIKED_API_KEY"]
+        super().__init__(lang_in, lang_out, model, base_url=base_url, api_key=api_key)
+        self.prompttext = prompt
+        if prompt:
+            self.add_cache_impact_parameters("prompt", prompt.template)
