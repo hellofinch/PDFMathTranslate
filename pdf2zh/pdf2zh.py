@@ -164,6 +164,11 @@ def create_parser() -> argparse.ArgumentParser:
         help="config file.",
     )
 
+    parse_params.add_argument(
+        "--electron",
+        action="store_true",
+    )
+
     return parser
 
 
@@ -225,13 +230,15 @@ def main(args: Optional[List[str]] = None) -> int:
 
     if parsed_args.interactive:
         from pdf2zh.gui import setup_gui
-
-        if parsed_args.serverport:
-            setup_gui(
-                parsed_args.share, parsed_args.authorized, int(parsed_args.serverport)
-            )
+        if not parsed_args.electron:
+            if parsed_args.serverport:
+                setup_gui(
+                    parsed_args.share, parsed_args.authorized, int(parsed_args.serverport)
+                )
+            else:
+                setup_gui(parsed_args.share, parsed_args.authorized)
         else:
-            setup_gui(parsed_args.share, parsed_args.authorized)
+            setup_gui(parsed_args.share, parsed_args.authorized, electron=True)
         return 0
 
     if parsed_args.flask:
