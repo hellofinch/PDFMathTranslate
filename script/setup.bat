@@ -21,6 +21,11 @@ if not exist Scripts/pip.exe (
 path Scripts
 
 pip install --no-warn-script-location --upgrade pdf2zh -i !PIP_MIRROR!
-pdf2zh -i
+pdf2zh --dry_run
 
-pause
+set "_root=%~dp0"
+set "_root=%_root:~0,-1%"
+cd "%_root%"
+echo "%_root%"
+
+start "PDFMathTranslate" "%_root%\pdf2zh.exe" 
