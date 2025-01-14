@@ -1,6 +1,6 @@
 <div align="center">
 
-[English](../README.md) | [简体中文](README_zh-CN.md) | 日本語
+[English](../README.md) | [简体中文](README_zh-CN.md) | [繁體中文](README_zh-TW.md) | 日本語
 
 <img src="./images/banner.png" width="320px"  alt="PDF2ZH"/>  
 
@@ -78,6 +78,11 @@ pdf2zhの実行には追加モデル（`wybxc/DocLayout-YOLO-DocStructBench-onnx
 
 ```shell
 set HF_ENDPOINT=https://hf-mirror.com
+```
+
+For PowerShell user:
+```shell
+$env:HF_ENDPOINT = https://hf-mirror.com
 ```
 
 <h3 id="cmd">方法1. コマンドライン</h3>
@@ -182,6 +187,7 @@ Python環境を事前にインストールする必要はありません
 | `--serverport` | [カスタムWebUIポートを使用する] | `pdf2zh --serverport 7860` |
 | `--dir` | [batch translate] | `pdf2zh --dir /path/to/translate/` |
 | `--config` | [configuration file](https://github.com/Byaidu/PDFMathTranslate/blob/main/docs/ADVANCED.md#cofig) | `pdf2zh --config /path/to/config/config.json` |
+| `--serverport` | [custom gradio server port] | `pdf2zh --serverport 7860` |
 
 <h3 id="partial">全文または部分的なドキュメント翻訳</h3>
 
@@ -244,6 +250,12 @@ pdf2zh example.pdf -s openai:gpt-4o-mini
 
 ```bash
 set OPENAI_MODEL=gpt-4o-mini
+pdf2zh example.pdf -s openai
+```
+
+For PowerShell user:
+```shell
+$env:OPENAI_MODEL = gpt-4o-mini
 pdf2zh example.pdf -s openai
 ```
 
