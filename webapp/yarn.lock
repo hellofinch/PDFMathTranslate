@@ -223,11 +223,11 @@ __metadata:
   linkType: hard
 
 "@types/node@npm:*":
-  version: 22.10.5
-  resolution: "@types/node@npm:22.10.5"
+  version: 22.10.6
+  resolution: "@types/node@npm:22.10.6"
   dependencies:
     undici-types: "npm:~6.20.0"
-  checksum: 10c0/6a0e7d1fe6a86ef6ee19c3c6af4c15542e61aea2f4cee655b6252efb356795f1f228bc8299921e82924e80ff8eca29b74d9dd0dd5cc1a90983f892f740b480df
+  checksum: 10c0/8b67affc211e5f9c74f7949cda04ca669721e50b83d71b8772a7bed7a4a3c41d663b3a794413f618e763ca6c5da8c234c25ffebcb0737983fc3e7415818ab9a7
   languageName: node
   linkType: hard
 
@@ -304,7 +304,11 @@ __metadata:
   dependencies:
     electron: "npm:^33.3.1"
     electron-builder: "npm:^23.6.0"
+    electron-progressbar: "npm:^2.2.1"
     tree-kill: "npm:^1.2.2"
+  dependenciesMeta:
+    app-builder-lib@23.6.0:
+      unplugged: true
   languageName: unknown
   linkType: soft
 
@@ -1030,6 +1034,15 @@ __metadata:
   languageName: node
   linkType: hard
 
+"electron-progressbar@npm:^2.2.1":
+  version: 2.2.1
+  resolution: "electron-progressbar@npm:2.2.1"
+  dependencies:
+    extend: "npm:^3.0.1"
+  checksum: 10c0/201b8141ae3db9a2be73b5b87b3a9d7607a96fe2a8b7f35eef98e8adf4091626d28e1313b486e7b1710ab097d6538841ad3faa500026afd548e7e6af2c308162
+  languageName: node
+  linkType: hard
+
 "electron-publish@npm:23.6.0":
   version: 23.6.0
   resolution: "electron-publish@npm:23.6.0"
@@ -1143,6 +1156,13 @@ __metadata:
   version: 3.1.1
   resolution: "exponential-backoff@npm:3.1.1"
   checksum: 10c0/160456d2d647e6019640bd07111634d8c353038d9fa40176afb7cd49b0548bdae83b56d05e907c2cce2300b81cae35d800ef92fefb9d0208e190fa3b7d6bb579
+  languageName: node
+  linkType: hard
+
+"extend@npm:^3.0.1":
+  version: 3.0.2
+  resolution: "extend@npm:3.0.2"
+  checksum: 10c0/73bf6e27406e80aa3e85b0d1c4fd987261e628064e170ca781125c0b635a3dabad5e05adbf07595ea0cf1e6c5396cacb214af933da7cbaf24fe75ff14818e8f9
   languageName: node
   linkType: hard
 

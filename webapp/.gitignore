@@ -13,4 +13,6 @@
 .pnp.*
 
 .yarnrc.yml
-node_module/**
+node_modules/**
+userdata/
+yarn.lock

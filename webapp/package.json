@@ -4,7 +4,7 @@
   "description": "PDFMathTranslate client",
   "packageManager": "yarn@4.6.0",
   "main": "main.js",
-  "author": "Jane Doe",
+  "author": "hellofinch",
   "license": "MIT",
   "devDependencies": {
     "electron": "^33.3.1",
@@ -14,7 +14,7 @@
     "start": "electron .",
     "start:dev": "NODE_ENV=development electron .",
     "build": "electron-builder",
-    "clean": "rm -rf dist node_modules"
+    "clean": "rmdir /s /q dist node_modules"
   },
   "build": {
     "appId": "pdfmathtranslate",
@@ -29,10 +29,17 @@
     },
     "electronVersion": "33.3.1",
     "win": {
-      "target": "portable"
+      "target": "portable",
+      "icon": "pdf2zh.ico"
     }
   },
   "dependencies": {
+    "electron-progressbar": "^2.2.1",
     "tree-kill": "^1.2.2"
+  },
+  "dependenciesMeta": {
+    "app-builder-lib@23.6.0": {
+      "unplugged": true
+    }
   }
 }
