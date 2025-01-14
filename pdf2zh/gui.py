@@ -606,7 +606,7 @@ def parse_user_passwd(file_path: str) -> tuple:
 
 
 def setup_gui(
-    share: bool = False, auth_file: list = ["", ""], server_port=7860, electron = False
+    share: bool = False, auth_file: list = ["", ""], server_port=7860, electron=False
 ) -> None:
     """
     Setup the GUI with the given parameters.
@@ -618,7 +618,7 @@ def setup_gui(
     Outputs:
         - None
     """
-    server_port = ConfigManager.get("gradio_port",server_port)
+    server_port = ConfigManager.get("gradio_port", server_port)
     if electron:
         try:
             demo.launch(
@@ -681,7 +681,10 @@ def setup_gui(
                             "Error launching GUI using 127.0.0.1.\nThis may be caused by global mode of proxy software."
                         )
                         demo.launch(
-                            debug=True, inbrowser=True, share=True, server_port=server_port
+                            debug=True,
+                            inbrowser=True,
+                            share=True,
+                            server_port=server_port,
                         )
             else:
                 try:

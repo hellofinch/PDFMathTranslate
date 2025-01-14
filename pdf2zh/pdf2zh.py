@@ -230,10 +230,13 @@ def main(args: Optional[List[str]] = None) -> int:
 
     if parsed_args.interactive:
         from pdf2zh.gui import setup_gui
+
         if not parsed_args.electron:
             if parsed_args.serverport:
                 setup_gui(
-                    parsed_args.share, parsed_args.authorized, int(parsed_args.serverport)
+                    parsed_args.share,
+                    parsed_args.authorized,
+                    int(parsed_args.serverport),
                 )
             else:
                 setup_gui(parsed_args.share, parsed_args.authorized)
