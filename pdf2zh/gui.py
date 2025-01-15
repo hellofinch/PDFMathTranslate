@@ -10,9 +10,12 @@ import gradio as gr
 import requests
 import tqdm
 from gradio_pdf import PDF
+from string import Template
 
 from pdf2zh import __version__
 from pdf2zh.high_level import translate
+from pdf2zh.doclayout import ModelInstance
+from pdf2zh.config import ConfigManager
 from pdf2zh.translator import (
     AnythingLLMTranslator,
     AzureOpenAITranslator,
@@ -22,6 +25,7 @@ from pdf2zh.translator import (
     DeepLTranslator,
     DeepLXTranslator,
     DifyTranslator,
+    ArgosTranslator,
     GeminiTranslator,
     GoogleTranslator,
     ModelScopeTranslator,
@@ -29,7 +33,12 @@ from pdf2zh.translator import (
     OpenAITranslator,
     SiliconTranslator,
     TencentTranslator,
+    XinferenceTranslator,
     ZhipuTranslator,
+    GorkTranslator,
+    GroqTranslator,
+    DeepseekTranslator,
+    OpenAIlikedTranslator,
 )
 
 # The following variables associate strings with translators
@@ -39,6 +48,7 @@ service_map: dict[str, BaseTranslator] = {
     "DeepL": DeepLTranslator,
     "DeepLX": DeepLXTranslator,
     "Ollama": OllamaTranslator,
+    "Xinference": XinferenceTranslator,
     "AzureOpenAI": AzureOpenAITranslator,
     "OpenAI": OpenAITranslator,
     "Zhipu": ZhipuTranslator,
@@ -49,6 +59,11 @@ service_map: dict[str, BaseTranslator] = {
     "Tencent": TencentTranslator,
     "Dify": DifyTranslator,
     "AnythingLLM": AnythingLLMTranslator,
+    "Argos Translate": ArgosTranslator,
+    "Gork": GorkTranslator,
+    "Groq": GroqTranslator,
+    "DeepSeek": DeepseekTranslator,
+    "OpenAI-liked": OpenAIlikedTranslator,
 }
 
 # The following variables associate strings with specific languages
@@ -77,7 +92,7 @@ page_map = {
 flag_demo = False
 
 # Limit resources
-if os.getenv("PDF2ZH_DEMO"):
+if ConfigManager.get("PDF2ZH_DEMO"):
     flag_demo = True
     service_map = {
         "Google": GoogleTranslator,
@@ -86,14 +101,8 @@ if os.getenv("PDF2ZH_DEMO"):
         "First": [0],
         "First 20 pages": list(range(0, 20)),
     }
-    client_key = os.getenv("PDF2ZH_CLIENT_KEY")
-    server_key = os.getenv("PDF2ZH_SERVER_KEY")
-
-# Check if everything unconfigured
-if os.getenv("PDF2ZH_INIT") is not False:
-    service_map = {
-        "Google": GoogleTranslator,
-    }
+    client_key = ConfigManager.get("PDF2ZH_CLIENT_KEY")
+    server_key = ConfigManager.get("PDF2ZH_SERVER_KEY")
 
 
 # Public demo control
@@ -268,7 +277,8 @@ def translate_file(
         "callback": progress_bar,
         "cancellation_event": cancellation_event_map[session_id],
         "envs": _envs,
-        "prompt": prompt,
+        "prompt": Template(prompt),
+        "model": ModelInstance.value,
     }
     try:
         translate(**param)
@@ -403,12 +413,12 @@ with gr.Blocks(
                 lang_from = gr.Dropdown(
                     label="Translate from",
                     choices=lang_map.keys(),
-                    value="English",
+                    value=ConfigManager.get("PDF2ZH_LANG_FROM", "English"),
                 )
                 lang_to = gr.Dropdown(
                     label="Translate to",
                     choices=lang_map.keys(),
-                    value="Simplified Chinese",
+                    value=ConfigManager.get("PDF2ZH_LANG_TO", "Simplified Chinese"),
                 )
             page_range = gr.Radio(
                 choices=page_map.keys(),
@@ -439,7 +449,11 @@ with gr.Blocks(
                     _envs.append(gr.update(visible=False, value=""))
                 for i, env in enumerate(translator.envs.items()):
                     _envs[i] = gr.update(
-                        visible=True, label=env[0], value=os.getenv(env[0], env[1])
+                        visible=True,
+                        label=env[0],
+                        value=ConfigManager.get_env_by_translatername(
+                            translator, env[0], env[1]
+                        ),
                     )
                 _envs[-1] = gr.update(visible=translator.CustomPrompt)
                 return _envs
@@ -591,7 +605,9 @@ def parse_user_passwd(file_path: str) -> tuple:
     return tuple_list, content
 
 
-def setup_gui(share: bool = False, auth_file: list = ["", ""]) -> None:
+def setup_gui(
+    share: bool = False, auth_file: list = ["", ""], server_port=7860
+) -> None:
     """
     Setup the GUI with the given parameters.
 
@@ -609,7 +625,11 @@ def setup_gui(share: bool = False, auth_file: list = ["", ""]) -> None:
         if len(user_list) == 0:
             try:
                 demo.launch(
-                    server_name="0.0.0.0", debug=True, inbrowser=True, share=share
+                    server_name="0.0.0.0",
+                    debug=True,
+                    inbrowser=True,
+                    share=share,
+                    server_port=server_port,
                 )
             except Exception:
                 print(
@@ -617,13 +637,19 @@ def setup_gui(share: bool = False, auth_file: list = ["", ""]) -> None:
                 )
                 try:
                     demo.launch(
-                        server_name="127.0.0.1", debug=True, inbrowser=True, share=share
+                        server_name="127.0.0.1",
+                        debug=True,
+                        inbrowser=True,
+                        share=share,
+                        server_port=server_port,
                     )
                 except Exception:
                     print(
                         "Error launching GUI using 127.0.0.1.\nThis may be caused by global mode of proxy software."
                     )
-                    demo.launch(debug=True, inbrowser=True, share=True)
+                    demo.launch(
+                        debug=True, inbrowser=True, share=True, server_port=server_port
+                    )
         else:
             try:
                 demo.launch(
@@ -633,6 +659,7 @@ def setup_gui(share: bool = False, auth_file: list = ["", ""]) -> None:
                     share=share,
                     auth=user_list,
                     auth_message=html,
+                    server_port=server_port,
                 )
             except Exception:
                 print(
@@ -646,6 +673,7 @@ def setup_gui(share: bool = False, auth_file: list = ["", ""]) -> None:
                         share=share,
                         auth=user_list,
                         auth_message=html,
+                        server_port=server_port,
                     )
                 except Exception:
                     print(
@@ -657,6 +685,7 @@ def setup_gui(share: bool = False, auth_file: list = ["", ""]) -> None:
                         share=True,
                         auth=user_list,
                         auth_message=html,
+                        server_port=server_port,
                     )
 
 

@@ -1,4 +1,5 @@
 from typing import Dict, List
+from enum import Enum
 
 from pdfminer.pdfinterp import PDFGraphicState, PDFResourceManager
 from pdfminer.pdffont import PDFCIDFont
@@ -17,7 +18,6 @@ import concurrent.futures
 import numpy as np
 import unicodedata
 from tenacity import retry, wait_fixed
-from pdf2zh import cache
 from pdf2zh.translator import (
     AzureOpenAITranslator,
     BaseTranslator,
@@ -35,6 +35,12 @@ from pdf2zh.translator import (
     TencentTranslator,
     DifyTranslator,
     AnythingLLMTranslator,
+    XinferenceTranslator,
+    ArgosTranslator,
+    GorkTranslator,
+    GroqTranslator,
+    DeepseekTranslator,
+    OpenAIlikedTranslator,
 )
 from pymupdf import Font
 
@@ -112,11 +118,13 @@ class PDFConverterEx(PDFConverter):
 
 
 class Paragraph:
-    def __init__(self, y, x, x0, x1, size, brk):
+    def __init__(self, y, x, x0, x1, y0, y1, size, brk):
         self.y: float = y  # 初始纵坐标
         self.x: float = x  # 初始横坐标
         self.x0: float = x0  # 左边界
         self.x1: float = x1  # 右边界
+        self.y0: float = y0  # 上边界
+        self.y1: float = y1  # 下边界
         self.size: float = size  # 字体大小
         self.brk: bool = brk  # 换行标记
 
@@ -133,7 +141,7 @@ class TranslateConverter(PDFConverterEx):
         lang_in: str = "",
         lang_out: str = "",
         service: str = "",
-        resfont: str = "",
+        noto_name: str = "",
         noto: Font = None,
         envs: Dict = None,
         prompt: List = None,
@@ -143,14 +151,18 @@ class TranslateConverter(PDFConverterEx):
         self.vchar = vchar
         self.thread = thread
         self.layout = layout
-        self.resfont = resfont
+        self.noto_name = noto_name
         self.noto = noto
         self.translator: BaseTranslator = None
         param = service.split(":", 1)
         service_name = param[0]
         service_model = param[1] if len(param) > 1 else None
-        for translator in [GoogleTranslator, BingTranslator, DeepLTranslator, DeepLXTranslator, OllamaTranslator, AzureOpenAITranslator,
-                           OpenAITranslator, ZhipuTranslator, ModelScopeTranslator, SiliconTranslator, GeminiTranslator, AzureTranslator, TencentTranslator, DifyTranslator, AnythingLLMTranslator]:
+        if not envs:
+            envs = {}
+        if not prompt:
+            prompt = []
+        for translator in [GoogleTranslator, BingTranslator, DeepLTranslator, DeepLXTranslator, OllamaTranslator, XinferenceTranslator, AzureOpenAITranslator,
+                           OpenAITranslator, ZhipuTranslator, ModelScopeTranslator, SiliconTranslator, GeminiTranslator, AzureTranslator, TencentTranslator, DifyTranslator, AnythingLLMTranslator, ArgosTranslator, GorkTranslator, GroqTranslator, DeepseekTranslator, OpenAIlikedTranslator,]:
             if service_name == translator.name:
                 self.translator = translator(lang_in, lang_out, service_model, envs=envs, prompt=prompt)
         if not self.translator:
@@ -179,7 +191,10 @@ class TranslateConverter(PDFConverterEx):
 
         def vflag(font: str, char: str):    # 匹配公式（和角标）字体
             if isinstance(font, bytes):     # 不一定能 decode，直接转 str
-                font = str(font)
+                try:
+                    font = font.decode('utf-8')  # 尝试使用 UTF-8 解码
+                except UnicodeDecodeError:
+                    font = ""
             font = font.split("+")[-1]      # 字体名截断
             if re.match(r"\(cid:", char):
                 return True
@@ -189,7 +204,7 @@ class TranslateConverter(PDFConverterEx):
                     return True
             else:
                 if re.match(                                            # latex 字体
-                    r"(CM[^R]|(MS|XY|MT|BL|RM|EU|LA|RS)[A-Z]|LINE|LCIRCLE|TeX-|rsfs|txsy|wasy|stmary|.*Mono|.*Code|.*Ital|.*Sym|.*Math)",
+                    r"(CM[^R]|MS.M|XY|MT|BL|RM|EU|LA|RS|LINE|LCIRCLE|TeX-|rsfs|txsy|wasy|stmary|.*Mono|.*Code|.*Ital|.*Sym|.*Math)",
                     font,
                 ):
                     return True
@@ -275,10 +290,10 @@ class TranslateConverter(PDFConverterEx):
                             pstk[-1].brk = True
                     else:                           # 根据当前字符构建一个新的段落
                         sstk.append("")
-                        pstk.append(Paragraph(child.y0, child.x0, child.x0, child.x0, child.size, False))
+                        pstk.append(Paragraph(child.y0, child.x0, child.x0, child.x0, child.y0, child.y1, child.size, False))
                 if not cur_v:                                               # 文字入栈
                     if (                                                    # 根据当前字符修正段落属性
-                        child.size > pstk[-1].size / 0.79                   # 1. 当前字符显著比段落字体大
+                        child.size > pstk[-1].size                          # 1. 当前字符比段落字体大
                         or len(sstk[-1].strip()) == 1                       # 2. 当前字符为段落第二个文字（考虑首字母放大的情况）
                     ) and child.get_text() != " ":                          # 3. 当前字符不是空格
                         pstk[-1].y -= child.size - pstk[-1].size            # 修正段落初始纵坐标，假设两个不同大小字符的上边界对齐
@@ -295,6 +310,8 @@ class TranslateConverter(PDFConverterEx):
                 # 更新段落边界，因为段落内换行之后可能是公式开头，所以要在外边处理
                 pstk[-1].x0 = min(pstk[-1].x0, child.x0)
                 pstk[-1].x1 = max(pstk[-1].x1, child.x1)
+                pstk[-1].y0 = min(pstk[-1].y0, child.y0)
+                pstk[-1].y1 = max(pstk[-1].y1, child.y1)
                 # 更新上一个字符
                 xt = child
                 xt_cls = cls
@@ -328,21 +345,13 @@ class TranslateConverter(PDFConverterEx):
         ############################################################
         # B. 段落翻译
         log.debug("\n==========[SSTACK]==========\n")
-        hash_key = cache.deterministic_hash("PDFMathTranslate")
-        cache.create_cache(hash_key)
 
         @retry(wait=wait_fixed(1))
         def worker(s: str):  # 多线程翻译
             if not s.strip() or re.match(r"^\{v\d+\}$", s):  # 空白和公式不翻译
                 return s
             try:
-                hash_key_paragraph = cache.deterministic_hash(
-                    (s, str(self.translator))
-                )
-                new = cache.load_paragraph(hash_key, hash_key_paragraph)  # 查询缓存
-                if new is None:
-                    new = self.translator.translate(s)
-                    cache.write_paragraph(hash_key, hash_key_paragraph, new)
+                new = self.translator.translate(s)
                 return new
             except BaseException as e:
                 if log.isEnabledFor(logging.DEBUG):
@@ -358,27 +367,46 @@ class TranslateConverter(PDFConverterEx):
         ############################################################
         # C. 新文档排版
         def raw_string(fcur: str, cstk: str):  # 编码字符串
-            if fcur == 'noto':
+            if fcur == self.noto_name:
                 return "".join(["%04x" % self.noto.has_glyph(ord(c)) for c in cstk])
             elif isinstance(self.fontmap[fcur], PDFCIDFont):  # 判断编码长度
                 return "".join(["%04x" % ord(c) for c in cstk])
             else:
                 return "".join(["%02x" % ord(c) for c in cstk])
 
+        # 根据目标语言获取默认行距
+        LANG_LINEHEIGHT_MAP = {
+            "zh-cn": 1.4, "zh-tw": 1.4, "zh-hans": 1.4, "zh-hant": 1.4, "zh": 1.4,
+            "ja": 1.1, "ko": 1.2, "en": 1.2, "ar": 1.0, "ru": 0.8, "uk": 0.8, "ta": 0.8
+        }
+        default_line_height = LANG_LINEHEIGHT_MAP.get(self.translator.lang_out.lower(), 1.1) # 小语种默认1.1
         _x, _y = 0, 0
+        ops_list = []
+
+        def gen_op_txt(font, size, x, y, rtxt):
+            return f"/{font} {size:f} Tf 1 0 0 1 {x:f} {y:f} Tm [<{rtxt}>] TJ "
+
+        def gen_op_line(x, y, xlen, ylen, linewidth):
+            return f"ET q 1 0 0 1 {x:f} {y:f} cm [] 0 d 0 J {linewidth:f} w 0 0 m {xlen:f} {ylen:f} l S Q BT "
+
         for id, new in enumerate(news):
-            x: float = pstk[id].x           # 段落初始横坐标
-            y: float = pstk[id].y           # 段落初始纵坐标
-            x0: float = pstk[id].x0         # 段落左边界
-            x1: float = pstk[id].x1         # 段落右边界
-            size: float = pstk[id].size     # 段落字体大小
-            brk: bool = pstk[id].brk        # 段落换行标记
-            cstk: str = ""                  # 当前文字栈
-            fcur: str = None                # 当前字体 ID
+            x: float = pstk[id].x                       # 段落初始横坐标
+            y: float = pstk[id].y                       # 段落初始纵坐标
+            x0: float = pstk[id].x0                     # 段落左边界
+            x1: float = pstk[id].x1                     # 段落右边界
+            height: float = pstk[id].y1 - pstk[id].y0   # 段落高度
+            size: float = pstk[id].size                 # 段落字体大小
+            brk: bool = pstk[id].brk                    # 段落换行标记
+            cstk: str = ""                              # 当前文字栈
+            fcur: str = None                            # 当前字体 ID
+            lidx = 0                                    # 记录换行次数
             tx = x
             fcur_ = fcur
             ptr = 0
             log.debug(f"< {y} {x} {x0} {x1} {size} {brk} > {sstk[id]} | {new}")
+
+            ops_vals: list[dict] = []
+
             while ptr < len(new):
                 vy_regex = re.match(
                     r"\{\s*v([\d\s]+)\}", new[ptr:], re.IGNORECASE
@@ -402,8 +430,8 @@ class TranslateConverter(PDFConverterEx):
                     except Exception:
                         pass
                     if fcur_ is None:
-                        fcur_ = self.resfont  # 默认非拉丁字体
-                    if fcur_ == 'noto':
+                        fcur_ = self.noto_name  # 默认非拉丁字体
+                    if fcur_ == self.noto_name: # FIXME: change to CONST
                         adv = self.noto.char_lengths(ch, size)[0]
                     else:
                         adv = self.fontmap[fcur_].char_width(ord(ch)) * size
@@ -414,25 +442,48 @@ class TranslateConverter(PDFConverterEx):
                     or x + adv > x1 + 0.1 * size    # 3. 到达右边界（可能一整行都被符号化，这里需要考虑浮点误差）
                 ):
                     if cstk:
-                        ops += f"/{fcur} {size:f} Tf 1 0 0 1 {tx:f} {y:f} Tm [<{raw_string(fcur, cstk)}>] TJ "
+                        ops_vals.append({
+                            "type": OpType.TEXT,
+                            "font": fcur,
+                            "size": size,
+                            "x": tx,
+                            "dy": 0,
+                            "rtxt": raw_string(fcur, cstk),
+                            "lidx": lidx
+                        })
                         cstk = ""
                 if brk and x + adv > x1 + 0.1 * size:  # 到达右边界且原文段落存在换行
                     x = x0
-                    lang_space = {"zh-cn": 1.4, "zh-tw": 1.4, "zh-hans": 1.4, "zh-hant": 1.4, "zh": 1.4, "ja": 1.1, "ko": 1.2, "en": 1.2, "ar": 1.0, "ru": 0.8, "uk": 0.8, "ta": 0.8}
-                    y -= size * lang_space.get(self.translator.lang_out.lower(), 1.1)  # 小语种大多适配 1.1
+                    lidx += 1
                 if vy_regex:  # 插入公式
                     fix = 0
                     if fcur is not None:  # 段落内公式修正纵向偏移
                         fix = varf[vid]
                     for vch in var[vid]:  # 排版公式字符
                         vc = chr(vch.cid)
-                        ops += f"/{self.fontid[vch.font]} {vch.size:f} Tf 1 0 0 1 {x + vch.x0 - var[vid][0].x0:f} {fix + y + vch.y0 - var[vid][0].y0:f} Tm [<{raw_string(self.fontid[vch.font], vc)}>] TJ "
+                        ops_vals.append({
+                            "type": OpType.TEXT,
+                            "font": self.fontid[vch.font],
+                            "size": vch.size,
+                            "x": x + vch.x0 - var[vid][0].x0,
+                            "dy": fix + vch.y0 - var[vid][0].y0,
+                            "rtxt": raw_string(self.fontid[vch.font], vc),
+                            "lidx": lidx
+                        })
                         if log.isEnabledFor(logging.DEBUG):
                             lstk.append(LTLine(0.1, (_x, _y), (x + vch.x0 - var[vid][0].x0, fix + y + vch.y0 - var[vid][0].y0)))
                             _x, _y = x + vch.x0 - var[vid][0].x0, fix + y + vch.y0 - var[vid][0].y0
                     for l in varl[vid]:  # 排版公式线条
                         if l.linewidth < 5:  # hack 有的文档会用粗线条当图片背景
-                            ops += f"ET q 1 0 0 1 {l.pts[0][0] + x - var[vid][0].x0:f} {l.pts[0][1] + fix + y - var[vid][0].y0:f} cm [] 0 d 0 J {l.linewidth:f} w 0 0 m {l.pts[1][0] - l.pts[0][0]:f} {l.pts[1][1] - l.pts[0][1]:f} l S Q BT "
+                            ops_vals.append({
+                                "type": OpType.LINE,
+                                "x": l.pts[0][0] + x - var[vid][0].x0,
+                                "dy": l.pts[0][1] + fix - var[vid][0].y0,
+                                "linewidth": l.linewidth,
+                                "xlen": l.pts[1][0] - l.pts[0][0],
+                                "ylen": l.pts[1][1] - l.pts[0][1],
+                                "lidx": lidx
+                            })
                 else:  # 插入文字缓冲区
                     if not cstk:  # 单行开头
                         tx = x
@@ -450,9 +501,35 @@ class TranslateConverter(PDFConverterEx):
                     _x, _y = x, y
             # 处理结尾
             if cstk:
-                ops += f"/{fcur} {size:f} Tf 1 0 0 1 {tx:f} {y:f} Tm [<{raw_string(fcur, cstk)}>] TJ "
+                ops_vals.append({
+                    "type": OpType.TEXT,
+                    "font": fcur,
+                    "size": size,
+                    "x": tx,
+                    "dy": 0,
+                    "rtxt": raw_string(fcur, cstk),
+                    "lidx": lidx
+                })
+
+            line_height = default_line_height
+
+            while (lidx + 1) * size * line_height > height and line_height >= 1:
+                line_height -= 0.05
+
+            for vals in ops_vals:
+                if vals["type"] == OpType.TEXT:
+                    ops_list.append(gen_op_txt(vals["font"], vals["size"], vals["x"], vals["dy"] + y - vals["lidx"] * size * line_height, vals["rtxt"]))
+                elif vals["type"] == OpType.LINE:
+                    ops_list.append(gen_op_line(vals["x"], vals["dy"] + y - vals["lidx"] * size * line_height, vals["xlen"], vals["ylen"], vals["linewidth"]))
+
         for l in lstk:  # 排版全局线条
             if l.linewidth < 5:  # hack 有的文档会用粗线条当图片背景
-                ops += f"ET q 1 0 0 1 {l.pts[0][0]:f} {l.pts[0][1]:f} cm [] 0 d 0 J {l.linewidth:f} w 0 0 m {l.pts[1][0] - l.pts[0][0]:f} {l.pts[1][1] - l.pts[0][1]:f} l S Q BT "
-        ops = f"BT {ops}ET "
+                ops_list.append(gen_op_line(l.pts[0][0], l.pts[0][1], l.pts[1][0] - l.pts[0][0], l.pts[1][1] - l.pts[0][1], l.linewidth))
+
+        ops = f"BT {''.join(ops_list)}ET "
         return ops
+
+
+class OpType(Enum):
+    TEXT = "text"
+    LINE = "line"

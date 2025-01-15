@@ -6,12 +6,17 @@ output it to plain text, html, xml or tags.
 from __future__ import annotations
 
 import argparse
-import sys
 import logging
+import sys
+from string import Template
 from typing import List, Optional
+
 from pdf2zh import __version__, log
 from pdf2zh.high_level import translate
-from string import Template
+from pdf2zh.doclayout import OnnxModel, ModelInstance
+import os
+
+from pdf2zh.config import ConfigManager
 
 
 def create_parser() -> argparse.ArgumentParser:
@@ -128,6 +133,37 @@ def create_parser() -> argparse.ArgumentParser:
         help="user custom prompt.",
     )
 
+    parse_params.add_argument(
+        "--compatible",
+        "-cp",
+        action="store_true",
+        help="Convert the PDF file into PDF/A format to improve compatibility.",
+    )
+
+    parse_params.add_argument(
+        "--onnx",
+        type=str,
+        help="custom onnx model path.",
+    )
+
+    parse_params.add_argument(
+        "--serverport",
+        type=int,
+        help="custom WebUI port.",
+    )
+
+    parse_params.add_argument(
+        "--dir",
+        action="store_true",
+        help="translate directory.",
+    )
+
+    parse_params.add_argument(
+        "--config",
+        type=str,
+        help="config file.",
+    )
+
     return parser
 
 
@@ -147,18 +183,55 @@ def parse_args(args: Optional[List[str]]) -> argparse.Namespace:
     return parsed_args
 
 
+def find_all_files_in_directory(directory_path):
+    """
+    Recursively search all PDF files in the given directory and return their paths as a list.
+
+    :param directory_path: str, the path to the directory to search
+    :return: list of PDF file paths
+    """
+    # Check if the provided path is a directory
+    if not os.path.isdir(directory_path):
+        raise ValueError(f"The provided path '{directory_path}' is not a directory.")
+
+    file_paths = []
+
+    # Walk through the directory recursively
+    for root, _, files in os.walk(directory_path):
+        for file in files:
+            # Check if the file is a PDF
+            if file.lower().endswith(".pdf"):
+                # Append the full file path to the list
+                file_paths.append(os.path.join(root, file))
+
+    return file_paths
+
+
 def main(args: Optional[List[str]] = None) -> int:
     logging.basicConfig()
 
     parsed_args = parse_args(args)
 
+    if parsed_args.config:
+        ConfigManager.custome_config(parsed_args.config)
+
     if parsed_args.debug:
         log.setLevel(logging.DEBUG)
+
+    if parsed_args.onnx:
+        ModelInstance.value = OnnxModel(parsed_args.onnx)
+    else:
+        ModelInstance.value = OnnxModel.load_available()
 
     if parsed_args.interactive:
         from pdf2zh.gui import setup_gui
 
-        setup_gui(parsed_args.share, parsed_args.authorized)
+        if parsed_args.serverport:
+            setup_gui(
+                parsed_args.share, parsed_args.authorized, int(parsed_args.serverport)
+            )
+        else:
+            setup_gui(parsed_args.share, parsed_args.authorized)
         return 0
 
     if parsed_args.flask:
@@ -181,7 +254,14 @@ def main(args: Optional[List[str]] = None) -> int:
         except Exception:
             raise ValueError("prompt error.")
 
-    translate(**vars(parsed_args))
+    print(parsed_args)
+    if parsed_args.dir:
+        untranlate_file = find_all_files_in_directory(parsed_args.files[0])
+        parsed_args.files = untranlate_file
+        translate(model=ModelInstance.value, **vars(parsed_args))
+        return 0
+
+    translate(model=ModelInstance.value, **vars(parsed_args))
     return 0
 
 

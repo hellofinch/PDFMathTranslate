@@ -8,6 +8,8 @@ import onnx
 import onnxruntime
 from huggingface_hub import hf_hub_download
 
+from pdf2zh.config import ConfigManager
+
 
 class DocLayoutModel(abc.ABC):
     @staticmethod
@@ -72,7 +74,7 @@ class OnnxModel(DocLayoutModel):
 
     @staticmethod
     def from_pretrained(repo_id: str, filename: str):
-        if os.environ.get("USE_MODELSCOPE", "0") == "1":
+        if ConfigManager.get("USE_MODELSCOPE", "0") == "1":
             repo_mapping = {
                 # Edit here to add more models
                 "wybxc/DocLayout-YOLO-DocStructBench-onnx": "AI-ModelScope/DocLayout-YOLO-DocStructBench-onnx"
@@ -173,3 +175,7 @@ class OnnxModel(DocLayoutModel):
             (new_h, new_w), preds[..., :4], (orig_h, orig_w)
         )
         return [YoloResult(boxes=preds, names=self._names)]
+
+
+class ModelInstance:
+    value: OnnxModel = None
