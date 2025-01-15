@@ -1,6 +1,6 @@
 <div align="center">
 
-English | [简体中文](docs/README_zh-CN.md) | [日本語](docs/README_ja-JP.md)
+English | [简体中文](docs/README_zh-CN.md) | [繁體中文](docs/README_zh-TW.md) | [日本語](docs/README_ja-JP.md)
 
 <img src="./docs/images/banner.png" width="320px"  alt="PDF2ZH"/>
 
@@ -165,11 +165,16 @@ The present program needs an AI model(`wybxc/DocLayout-YOLO-DocStructBench-onnx`
 set HF_ENDPOINT=https://hf-mirror.com
 ```
 
+For PowerShell user:
+```shell
+$env:HF_ENDPOINT = https://hf-mirror.com
+```
+
 If the solution does not work to you / you encountered other issues, please refer to [frequently asked questions](https://github.com/Byaidu/PDFMathTranslate/wiki#-faq--%E5%B8%B8%E8%A7%81%E9%97%AE%E9%A2%98).
 
 <h2 id="usage">Advanced Options</h2>
 
-Execute the translation command in the command line to generate the translated document `example-mono.pdf` and the bilingual document `example-dual.pdf` in the current working directory. Use Google as the default translation service.
+Execute the translation command in the command line to generate the translated document `example-mono.pdf` and the bilingual document `example-dual.pdf` in the current working directory. Use Google as the default translation service. More support translation services can find [HERE](https://github.com/Byaidu/PDFMathTranslate/blob/main/docs/ADVANCED.md#services).
 
 <img src="./docs/images/cmd.explained.png" width="580px"  alt="cmd"/>
 
@@ -193,6 +198,9 @@ In the following table, we list all advanced options for reference:
 | `--prompt`     | [Custom Prompt](https://github.com/Byaidu/PDFMathTranslate/blob/main/docs/ADVANCED.md#prompt)                 | `pdf2zh --prompt [prompt.txt]`                 |
 | `--onnx` | [Use Custom DocLayout-YOLO ONNX model] | `pdf2zh --onnx [onnx/model/path]` |
 | `--serverport` | [Use Custom WebUI port] | `pdf2zh --serverport 7860` |
+| `--dir` | [batch translate] | `pdf2zh --dir /path/to/translate/` |
+| `--config` | [configuration file](https://github.com/Byaidu/PDFMathTranslate/blob/main/docs/ADVANCED.md#cofig) | `pdf2zh --config /path/to/config/config.json` |
+| `--serverport` | [custom gradio server port] | `pdf2zh --serverport 7860` |
 
 For detailed explanations, please refer to our document about [Advanced Usage](./docs/ADVANCED.md) for a full list of each option.
 

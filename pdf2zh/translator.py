@@ -20,6 +20,7 @@ import argostranslate.package
 import argostranslate.translate
 
 import json
+from pdf2zh.config import ConfigManager
 
 
 def remove_control_characters(s):
@@ -54,12 +55,19 @@ class BaseTranslator:
         # Cannot use self.envs = copy(self.__class__.envs)
         # because if set_envs called twice, the second call will override the first call
         self.envs = copy(self.envs)
+        if ConfigManager.get_translator_by_name(self.name):
+            self.envs = ConfigManager.get_translator_by_name(self.name)
+        needUpdate = False
         for key in self.envs:
             if key in os.environ:
                 self.envs[key] = os.environ[key]
+                needUpdate = True
+        if needUpdate:
+            ConfigManager.set_translator_by_name(self.name, self.envs)
         if envs is not None:
             for key in envs:
                 self.envs[key] = envs[key]
+            ConfigManager.set_translator_by_name(self.name, self.envs)
 
     def add_cache_impact_parameters(self, k: str, v):
         """
@@ -214,6 +222,7 @@ class DeepLXTranslator(BaseTranslator):
     name = "deeplx"
     envs = {
         "DEEPLX_ENDPOINT": "https://api.deepl.com/translate",
+        "DEEPLX_ACCESS_TOKEN": None,
     }
     lang_map = {"zh": "zh-Hans"}
 
@@ -222,6 +231,9 @@ class DeepLXTranslator(BaseTranslator):
         super().__init__(lang_in, lang_out, model)
         self.endpoint = self.envs["DEEPLX_ENDPOINT"]
         self.session = requests.Session()
+        auth_key = self.envs["DEEPLX_ACCESS_TOKEN"]
+        if auth_key:
+            self.endpoint = f"{self.endpoint}?token={auth_key}"
 
     def do_translate(self, text):
         response = self.session.post(
@@ -540,7 +552,7 @@ class AzureTranslator(BaseTranslator):
         self.set_envs(envs)
         super().__init__(lang_in, lang_out, model)
         endpoint = self.envs["AZURE_ENDPOINT"]
-        api_key = os.getenv("AZURE_API_KEY")
+        api_key = self.envs["AZURE_API_KEY"]
         credential = AzureKeyCredential(api_key)
         self.client = TextTranslationClient(
             endpoint=endpoint, credential=credential, region="chinaeast2"
@@ -718,6 +730,26 @@ class GorkTranslator(OpenAITranslator):
         api_key = self.envs["GORK_API_KEY"]
         if not model:
             model = self.envs["GORK_MODEL"]
+        super().__init__(lang_in, lang_out, model, base_url=base_url, api_key=api_key)
+        self.prompttext = prompt
+        if prompt:
+            self.add_cache_impact_parameters("prompt", prompt.template)
+
+
+class GroqTranslator(OpenAITranslator):
+    name = "groq"
+    envs = {
+        "GROQ_API_KEY": None,
+        "GROQ_MODEL": "llama-3-3-70b-versatile",
+    }
+    CustomPrompt = True
+
+    def __init__(self, lang_in, lang_out, model, envs=None, prompt=None):
+        self.set_envs(envs)
+        base_url = "https://api.groq.com/openai/v1"
+        api_key = self.envs["GROQ_API_KEY"]
+        if not model:
+            model = self.envs["GROQ_MODEL"]
         super().__init__(lang_in, lang_out, model, base_url=base_url, api_key=api_key)
         self.prompttext = prompt
         if prompt:
