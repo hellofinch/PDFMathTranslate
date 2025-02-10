@@ -3,11 +3,13 @@
 import asyncio
 import io
 import os
+import re
 import sys
 import tempfile
 import urllib.request
 from asyncio import CancelledError
 from pathlib import Path
+from string import Template
 from typing import Any, BinaryIO, List, Optional, Dict
 
 import numpy as np
@@ -78,7 +80,7 @@ def translate_patch(
     cancellation_event: asyncio.Event = None,
     model: OnnxModel = None,
     envs: Dict = None,
-    prompt: List = None,
+    prompt: Template = None,
     **kwarg: Any,
 ) -> None:
     rsrcmgr = PDFResourceManager()
@@ -172,7 +174,7 @@ def translate_stream(
     cancellation_event: asyncio.Event = None,
     model: OnnxModel = None,
     envs: Dict = None,
-    prompt: List = None,
+    prompt: Template = None,
     **kwarg: Any,
 ):
     font_list = [("tiro", None)]
@@ -197,13 +199,21 @@ def translate_stream(
         for label in ["Resources/", ""]:  # 可能是基于 xobj 的 res
             try:  # xref 读写可能出错
                 font_res = doc_zh.xref_get_key(xref, f"{label}Font")
+                target_key_prefix = f"{label}Font/"
+                if font_res[0] == "xref":
+                    resource_xref_id = re.search("(\\d+) 0 R", font_res[1]).group(1)
+                    xref = int(resource_xref_id)
+                    font_res = ("dict", doc_zh.xref_object(xref))
+                    target_key_prefix = ""
+
                 if font_res[0] == "dict":
                     for font in font_list:
-                        font_exist = doc_zh.xref_get_key(xref, f"{label}Font/{font[0]}")
+                        target_key = f"{target_key_prefix}{font[0]}"
+                        font_exist = doc_zh.xref_get_key(xref, target_key)
                         if font_exist[0] == "null":
                             doc_zh.xref_set_key(
                                 xref,
-                                f"{label}Font/{font[0]}",
+                                target_key,
                                 f"{font_id[font[0]]} 0 R",
                             )
             except Exception:
@@ -297,7 +307,7 @@ def translate(
     cancellation_event: asyncio.Event = None,
     model: OnnxModel = None,
     envs: Dict = None,
-    prompt: List = None,
+    prompt: Template = None,
     **kwarg: Any,
 ):
     if not files:
