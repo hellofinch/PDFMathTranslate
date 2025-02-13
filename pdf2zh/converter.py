@@ -1,4 +1,4 @@
-from typing import Dict, List
+from typing import Dict
 from enum import Enum
 
 from pdfminer.pdfinterp import PDFGraphicState, PDFResourceManager
@@ -17,6 +17,7 @@ import re
 import concurrent.futures
 import numpy as np
 import unicodedata
+from string import Template
 from tenacity import retry, wait_fixed
 from pdf2zh.translator import (
     AzureOpenAITranslator,
@@ -41,6 +42,7 @@ from pdf2zh.translator import (
     GroqTranslator,
     DeepseekTranslator,
     OpenAIlikedTranslator,
+    QwenMtTranslator,
 )
 from pymupdf import Font
 
@@ -144,7 +146,7 @@ class TranslateConverter(PDFConverterEx):
         noto_name: str = "",
         noto: Font = None,
         envs: Dict = None,
-        prompt: List = None,
+        prompt: Template = None,
     ) -> None:
         super().__init__(rsrcmgr)
         self.vfont = vfont
@@ -159,10 +161,8 @@ class TranslateConverter(PDFConverterEx):
         service_model = param[1] if len(param) > 1 else None
         if not envs:
             envs = {}
-        if not prompt:
-            prompt = []
         for translator in [GoogleTranslator, BingTranslator, DeepLTranslator, DeepLXTranslator, OllamaTranslator, XinferenceTranslator, AzureOpenAITranslator,
-                           OpenAITranslator, ZhipuTranslator, ModelScopeTranslator, SiliconTranslator, GeminiTranslator, AzureTranslator, TencentTranslator, DifyTranslator, AnythingLLMTranslator, ArgosTranslator, GorkTranslator, GroqTranslator, DeepseekTranslator, OpenAIlikedTranslator,]:
+                           OpenAITranslator, ZhipuTranslator, ModelScopeTranslator, SiliconTranslator, GeminiTranslator, AzureTranslator, TencentTranslator, DifyTranslator, AnythingLLMTranslator, ArgosTranslator, GorkTranslator, GroqTranslator, DeepseekTranslator, OpenAIlikedTranslator, QwenMtTranslator,]:
             if service_name == translator.name:
                 self.translator = translator(lang_in, lang_out, service_model, envs=envs, prompt=prompt)
         if not self.translator:

@@ -39,6 +39,7 @@ from pdf2zh.translator import (
     GroqTranslator,
     DeepseekTranslator,
     OpenAIlikedTranslator,
+    QwenMtTranslator,
 )
 
 # The following variables associate strings with translators
@@ -60,10 +61,11 @@ service_map: dict[str, BaseTranslator] = {
     "Dify": DifyTranslator,
     "AnythingLLM": AnythingLLMTranslator,
     "Argos Translate": ArgosTranslator,
-    "Gork": GorkTranslator,
+    "Grok": GorkTranslator,
     "Groq": GroqTranslator,
     "DeepSeek": DeepseekTranslator,
     "OpenAI-liked": OpenAIlikedTranslator,
+    "Ali Qwen-Translation": QwenMtTranslator,
 }
 
 # The following variables associate strings with specific languages
@@ -277,7 +279,7 @@ def translate_file(
         "callback": progress_bar,
         "cancellation_event": cancellation_event_map[session_id],
         "envs": _envs,
-        "prompt": Template(prompt),
+        "prompt": Template(prompt) if prompt else None,
         "model": ModelInstance.value,
     }
     try:
@@ -435,7 +437,7 @@ with gr.Blocks(
             with gr.Accordion("Open for More Experimental Options!", open=False):
                 gr.Markdown("#### Experimental")
                 threads = gr.Textbox(
-                    label="number of threads", interactive=True, value="1"
+                    label="number of threads", interactive=True, value="4"
                 )
                 prompt = gr.Textbox(
                     label="Custom Prompt for llm", interactive=True, visible=False

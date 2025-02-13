@@ -1,6 +1,6 @@
 <div align="center">
 
-English | [简体中文](docs/README_zh-CN.md) | [繁體中文](docs/README_zh-TW.md) | [日本語](docs/README_ja-JP.md)
+English | [简体中文](docs/README_zh-CN.md) | [繁體中文](docs/README_zh-TW.md) | [日本語](docs/README_ja-JP.md) | [한국어](docs/README_ko-KR.md)
 
 <img src="./docs/images/banner.png" width="320px"  alt="PDF2ZH"/>
 
@@ -39,7 +39,7 @@ PDF scientific paper translation and bilingual comparison.
 - 🌐 Support [multiple languages](#language), and diverse [translation services](#services).
 - 🤖 Provides [commandline tool](#usage), [interactive user interface](#gui), and [Docker](#docker)
 
-Feel free to provide feedback in [GitHub Issues](https://github.com/Byaidu/PDFMathTranslate/issues), [Telegram Group](https://t.me/+Z9_SgnxmsmA5NzBl) or [QQ Group](https://qm.qq.com/q/DixZCxQej0).
+Feel free to provide feedback in [GitHub Issues](https://github.com/Byaidu/PDFMathTranslate/issues) or [Telegram Group](https://t.me/+Z9_SgnxmsmA5NzBl).
 
 For details on how to contribute, please consult the [Contribution Guide](https://github.com/Byaidu/PDFMathTranslate/wiki/Contribution-Guide---%E8%B4%A1%E7%8C%AE%E6%8C%87%E5%8D%97).
 
@@ -70,7 +70,7 @@ Note that the computing resources of the demo are limited, so please avoid abusi
 
 ### Methods
 
-For different use cases, we provide four distinct methods to use our program:
+For different use cases, we provide distinct methods to use our program:
 
 <details open>
   <summary>1. Commandline</summary>
@@ -157,6 +157,13 @@ For docker deployment on cloud service:
 
 </details>
 
+<details>
+  <summary>5. Zotero Plugin</summary>
+
+See [Zotero PDF2zh](https://github.com/guaguastandup/zotero-pdf2zh) for more details.
+
+</details>
+
 ### Unable to install?
 
 The present program needs an AI model(`wybxc/DocLayout-YOLO-DocStructBench-onnx`) before working and some users are not able to download due to network issues. If you have a problem with downloading this model, we provide a workaround using the following environment variable:
@@ -166,6 +173,7 @@ set HF_ENDPOINT=https://hf-mirror.com
 ```
 
 For PowerShell user:
+
 ```shell
 $env:HF_ENDPOINT = https://hf-mirror.com
 ```
@@ -194,13 +202,13 @@ In the following table, we list all advanced options for reference:
 | `-f`, `-c`     | [Exceptions](https://github.com/Byaidu/PDFMathTranslate/blob/main/docs/ADVANCED.md#exceptions)                | `pdf2zh example.pdf -f "(MS.*)"`               |
 | `-cp`          | Compatibility Mode                                                                                            | `pdf2zh example.pdf --compatible`              |
 | `--share`      | Public link                                                                                                   | `pdf2zh -i --share`                            |
-| `--authorized` | [Authorization](https://github.com/Byaidu/PDFMathTranslate/blob/main/docs/ADVANCED.md#auth)                                                                                                 | `pdf2zh -i --authorized users.txt [auth.html]` |
+| `--authorized` | [Authorization](https://github.com/Byaidu/PDFMathTranslate/blob/main/docs/ADVANCED.md#auth)                   | `pdf2zh -i --authorized users.txt [auth.html]` |
 | `--prompt`     | [Custom Prompt](https://github.com/Byaidu/PDFMathTranslate/blob/main/docs/ADVANCED.md#prompt)                 | `pdf2zh --prompt [prompt.txt]`                 |
-| `--onnx` | [Use Custom DocLayout-YOLO ONNX model] | `pdf2zh --onnx [onnx/model/path]` |
-| `--serverport` | [Use Custom WebUI port] | `pdf2zh --serverport 7860` |
-| `--dir` | [batch translate] | `pdf2zh --dir /path/to/translate/` |
-| `--config` | [configuration file](https://github.com/Byaidu/PDFMathTranslate/blob/main/docs/ADVANCED.md#cofig) | `pdf2zh --config /path/to/config/config.json` |
-| `--serverport` | [custom gradio server port] | `pdf2zh --serverport 7860` |
+| `--onnx`       | [Use Custom DocLayout-YOLO ONNX model]                                                                        | `pdf2zh --onnx [onnx/model/path]`              |
+| `--serverport` | [Use Custom WebUI port]                                                                                       | `pdf2zh --serverport 7860`                     |
+| `--dir`        | [batch translate]                                                                                             | `pdf2zh --dir /path/to/translate/`             |
+| `--config`     | [configuration file](https://github.com/Byaidu/PDFMathTranslate/blob/main/docs/ADVANCED.md#cofig)             | `pdf2zh --config /path/to/config/config.json`  |
+| `--serverport` | [custom gradio server port]                                                                                   | `pdf2zh --serverport 7860`                     |
 
 For detailed explanations, please refer to our document about [Advanced Usage](./docs/ADVANCED.md) for a full list of each option.
 
