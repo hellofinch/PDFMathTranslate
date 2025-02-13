@@ -7,14 +7,14 @@ body:
     attributes:
       label: Before you asking
       options:
-      - label: I have searched the existing issues
-        required: true
-      - label: I spend at least 5 minutes for thinking and preparing
-        required: true
-      - label: I have thoroughly and completely read the wiki.
-        required: true
-      - label: I have carefully checked the issue, and it is unrelated to the network environment.
-        required: true
+        - label: I have searched the existing issues
+          required: true
+        - label: I spend at least 5 minutes for thinking and preparing
+          required: true
+        - label: I have thoroughly and completely read the wiki.
+          required: true
+        - label: I have carefully checked the issue, and it is unrelated to the network environment.
+          required: true
   - type: markdown
     attributes:
       value: |
